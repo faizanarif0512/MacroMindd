@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Goal {
+  FAT_LOSS
+  MUSCLE_GAIN
+  MAINTENANCE
+}
+
+enum Gender {
+  FEMALE
+  MALE
+  NON_BINARY
+  PREFER_NOT_TO_SAY
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  ATHLETE
+}
+
+enum MealType {
+  BREAKFAST
+  LUNCH
+  DINNER
+  SNACKS
+}
+
+model User {
+  id             String        @id @default(cuid())
+  clerkId        String        @unique
+  name           String
+  email          String        @unique
+  age            Int?
+  gender         Gender?
+  height         Float?
+  weight         Float?
+  goal           Goal          @default(MAINTENANCE)
+  activityLevel  ActivityLevel @default(MODERATE)
+  targetCalories Int           @default(2200)
+  targetProtein  Int           @default(120)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  logs           FoodLog[]
+  customFoods    CustomFood[]
+  weights        Weight[]
+  favoriteMeals  FavoriteMeal[]
+  recipes        Recipe[]
+}
+
+model Food {
+  id          String    @id @default(cuid())
+  source      String    @default("custom")
+  sourceId    String?
+  name        String
+  brand       String?
+  category    String?
+  calories    Float
+  protein     Float
+  carbs       Float
+  fats        Float
+  fiber       Float
+  servingSize Float     @default(100)
+  createdAt   DateTime  @default(now())
+  logs        FoodLog[]
+
+  @@index([name])
+  @@unique([source, sourceId])
+}
+
+model FoodLog {
+  id        String   @id @default(cuid())
+  userId    String
+  foodId    String?
+  foodName  String
+  quantity  Float
+  mealType  MealType
+  timestamp DateTime @default(now())
+  calories  Float
+  protein   Float
+  carbs     Float
+  fats      Float
+  fiber     Float
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  food      Food?    @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  @@index([userId, timestamp])
+}
+
+model CustomFood {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  calories    Float
+  protein     Float
+  carbs       Float
+  fats        Float
+  fiber       Float
+  servingSize Float    @default(100)
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Weight {
+  id     String   @id @default(cuid())
+  userId String
+  weight Float
+  date   DateTime @default(now())
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, date])
+}
+
+model FavoriteMeal {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  mealType  MealType
+  items     Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Recipe {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  servings  Int      @default(1)
+  items     Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
