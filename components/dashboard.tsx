@@ -54,7 +54,7 @@ export function Dashboard() {
   const [mounted, setMounted] = useState(false);
   const [logs, setLogs] = useState<NutritionEntry[]>([]);
   const [profile, setProfile] = useState<UserProfile>(demoProfile);
-  const [trend, setTrend] = useState([]);
+  const [trend, setTrend] = useState<{ date?: string; day?: string; calories: number; protein: number }[]>([]);
   const [healthScore, setHealthScore] = useState(82);
   const [aiInsight, setAiInsight] = useState<AiInsight>(fallbackInsight);
   const [isLoading, setIsLoading] = useState(true);
