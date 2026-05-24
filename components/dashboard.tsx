@@ -160,7 +160,7 @@ export function Dashboard() {
           mode: "database" | "demo";
           profile?: UserProfile;
           logs?: NutritionEntry[];
-          weeklyCalories?: typeof weeklyCalories;
+          weeklyCalories?: { date?: string; day?: string; calories: number; protein: number }[];
           healthScore?: number;
           streak?: number;
         };
