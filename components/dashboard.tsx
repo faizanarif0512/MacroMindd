@@ -322,13 +322,14 @@ export function Dashboard() {
     return "bg-emerald-700 dark:bg-emerald-600 hover:ring-2 hover:ring-emerald-800";
   };
 
-  const getCellTitle = (dateStr: string, calories: number, protein: number) => {
+  const getCellTitle = (dateStr: string | undefined, calories: number, protein: number) => {
     try {
+      if (!dateStr) return "No tracking data";
       const dateFormatted = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date(dateStr));
       if (calories === 0) return `${dateFormatted}: No tracking data`;
       return `${dateFormatted}: ${calories} kcal logged, ${protein}g protein (Goal: ${profile.targetCalories} kcal, ${profile.targetProtein}g)`;
     } catch {
-      return dateStr;
+      return dateStr || "No tracking data";
     }
   };
 
@@ -561,7 +562,7 @@ export function Dashboard() {
                       
                       {/* 7 rows x 10 cols grid */}
                       <div className="grid grid-flow-col grid-rows-7 gap-[3px] h-[105px] items-center">
-                        {trend.slice(0, 70).map((day: { date: string; calories: number; protein: number }, idx) => (
+                        {trend.slice(0, 70).map((day, idx) => (
                           <div
                             key={`${day.date || 'day'}-${idx}`}
                             className={`w-[12px] h-[12px] rounded-[2px] transition-all cursor-pointer ${getCellClass(day.calories, day.protein)}`}
