@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState, useTransition } from "react";
+import { FormEvent, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Activity, Apple, Dumbbell, Flame } from "lucide-react";
@@ -22,11 +22,6 @@ export default function OnboardingPage() {
   const [status, setStatus] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (isLoaded && !user) {
-      setStatus("Sign in first so your profile can be saved.");
-    }
-  }, [isLoaded, user]);
 
   function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -56,21 +51,6 @@ export default function OnboardingPage() {
         return;
       }
 
-      if (!user) {
-        localStorage.setItem("macromind_guest_profile", JSON.stringify({
-          name: String(formData.get("name") ?? "MacroMind user"),
-          email: String(formData.get("email") ?? "user@macromind.local"),
-          age: Number(formData.get("age")),
-          gender: String(formData.get("gender")),
-          height: Number(formData.get("height")),
-          weight: Number(formData.get("weight")),
-          goal,
-          activityLevel: String(formData.get("activityLevel")),
-          targetCalories: Number(formData.get("targetCalories")),
-          targetProtein: Number(formData.get("targetProtein"))
-        }));
-      }
-
       router.push("/");
       router.refresh();
     });
@@ -93,8 +73,8 @@ export default function OnboardingPage() {
             <CardTitle>Profile</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
-            <Input name="name" placeholder="Name" defaultValue={user?.fullName ?? "Faizan"} />
-            <Input name="email" placeholder="Email" defaultValue={user?.primaryEmailAddress?.emailAddress ?? "demo@macromind.app"} />
+            <Input name="name" placeholder="Name" defaultValue={user?.fullName ?? ""} />
+            <Input name="email" placeholder="Email" defaultValue={user?.primaryEmailAddress?.emailAddress ?? ""} />
             <Input name="age" type="number" placeholder="Age" defaultValue={29} />
             <select name="gender" defaultValue="MALE" className="h-11 rounded-xl border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring">
               <option value="MALE">Male</option>

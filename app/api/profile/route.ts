@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { demoProfile } from "@/lib/demo-data";
 import { getOrCreateRequestUser } from "@/lib/backend";
 import { prisma } from "@/lib/prisma";
 import { profileSchema } from "@/lib/validators";
 
 export async function GET() {
   const { user, mode } = await getOrCreateRequestUser();
-  return NextResponse.json({ profile: user ?? demoProfile, mode });
+  return NextResponse.json({ profile: user, mode });
 }
 
 export async function POST(request: Request) {

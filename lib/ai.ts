@@ -79,7 +79,6 @@ export async function generateAiInsights(logs: NutritionEntry[] = demoLogs, prof
 
   const getFallback = () => {
     const proteinRatio = profile.targetProtein ? totals.protein / profile.targetProtein : 0;
-    const calorieRatio = profile.targetCalories ? totals.calories / profile.targetCalories : 0;
 
     let score = 100;
     let summary = "Excellent start! Your tracking metrics are clean and balanced today.";

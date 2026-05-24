@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { demoLogs } from "@/lib/demo-data";
 import { getOrCreateRequestUser, toNutritionEntry } from "@/lib/backend";
 import { prisma } from "@/lib/prisma";
 import { foodLogSchema } from "@/lib/validators";

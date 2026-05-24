@@ -1,5 +1,4 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { demoLogs, demoProfile, weeklyCalories } from "@/lib/demo-data";
 import { prisma } from "@/lib/prisma";
 import type { NutritionEntry } from "@/lib/types";
 
@@ -59,21 +58,18 @@ export function toNutritionEntry(log: {
 export async function getOrCreateRequestUser() {
   try {
     const { userId } = await auth().catch(() => ({ userId: null }));
-    const targetUserId = userId ?? "demo-user";
-
-    let email = "demo@macromind.app";
-    let name = "Faizan";
-
-    if (userId) {
-      const clerkUser = await currentUser();
-      email = clerkUser?.emailAddresses[0]?.emailAddress ?? `${userId}@macromind.local`;
-      name = clerkUser?.fullName ?? clerkUser?.firstName ?? "MacroMind user";
+    if (!userId) {
+      return { user: null, mode: "demo" as const };
     }
 
+    const clerkUser = await currentUser();
+    const email = clerkUser?.emailAddresses[0]?.emailAddress ?? `${userId}@macromind.local`;
+    const name = clerkUser?.fullName ?? clerkUser?.firstName ?? "MacroMind user";
+
     const user = await prisma.user.upsert({
-      where: { clerkId: targetUserId },
+      where: { clerkId: userId },
       create: {
-        clerkId: targetUserId,
+        clerkId: userId,
         email,
         name,
         age: 29,
@@ -85,7 +81,7 @@ export async function getOrCreateRequestUser() {
         targetCalories: 2450,
         targetProtein: 145
       },
-      update: userId ? { email, name } : {}
+      update: { email, name }
     });
 
     return { user, mode: "database" as const };
@@ -102,7 +98,7 @@ export async function getDashboardData(date = new Date()) {
     const totals = calculateTotals([]);
     return {
       mode,
-      profile: demoProfile,
+      profile: null,
       logs: [],
       totals,
       weeklyCalories: [],

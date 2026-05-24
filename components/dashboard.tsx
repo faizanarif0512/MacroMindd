@@ -15,8 +15,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { demoProfile } from "@/lib/demo-data";
 import type { AiInsight, MealType, NutritionEntry, UserProfile } from "@/lib/types";
+
+const emptyProfile: UserProfile = {
+  name: "",
+  email: "",
+  goal: "MAINTENANCE",
+  activityLevel: "MODERATE",
+  targetCalories: 2000,
+  targetProtein: 130
+};
 
 const pieColors = ["#111827", "#6b7280", "#9ca3af"];
 const mealLabels: Record<MealType, string> = {
@@ -50,10 +58,10 @@ function totalLogs(logs: NutritionEntry[]) {
 }
 
 export function Dashboard() {
-  const { isLoaded, isSignedIn } = useUser();
+  const { isLoaded, isSignedIn, user } = useUser();
   const [mounted, setMounted] = useState(false);
   const [logs, setLogs] = useState<NutritionEntry[]>([]);
-  const [profile, setProfile] = useState<UserProfile>(demoProfile);
+  const [profile, setProfile] = useState<UserProfile>(emptyProfile);
   const [trend, setTrend] = useState<{ date?: string; day?: string; calories: number; protein: number }[]>([]);
   const [healthScore, setHealthScore] = useState(82);
   const [aiInsight, setAiInsight] = useState<AiInsight>(fallbackInsight);
@@ -113,8 +121,8 @@ export function Dashboard() {
   useEffect(() => {
     setMounted(true);
     try {
-      const savedProfile = localStorage.getItem("macromind_cached_profile") || localStorage.getItem("macromind_guest_profile");
-      const savedLogs = localStorage.getItem("macromind_cached_logs") || localStorage.getItem("macromind_guest_logs");
+      const savedProfile = localStorage.getItem("macromind_cached_profile");
+      const savedLogs = localStorage.getItem("macromind_cached_logs");
       const savedTrend = localStorage.getItem("macromind_cached_trend");
       const savedHealth = localStorage.getItem("macromind_cached_health");
       const savedStreak = localStorage.getItem("macromind_cached_streak");
@@ -143,11 +151,7 @@ export function Dashboard() {
     }
   }, []);
 
-  const stats = [
-    { Icon: Droplets, label: "Water", value: "5 cups" },
-    { Icon: Scale, label: "Weight", value: `${profile.weight ?? 76} kg` },
-    { Icon: Trophy, label: "Streak", value: "12 days" }
-  ];
+
 
   useEffect(() => {
     let active = true;
@@ -166,20 +170,13 @@ export function Dashboard() {
         };
         if (!active) return;
         
-        if (data.mode === "database") {
-          setProfile(data.profile ?? demoProfile);
-          setLogs(data.logs ?? []);
-          localStorage.setItem("macromind_cached_profile", JSON.stringify(data.profile ?? demoProfile));
-          localStorage.setItem("macromind_cached_logs", JSON.stringify(data.logs ?? []));
-        } else {
-          const savedProfile = localStorage.getItem("macromind_guest_profile");
-          const savedLogs = localStorage.getItem("macromind_guest_logs");
-          const activeProfile = savedProfile ? JSON.parse(savedProfile) : demoProfile;
-          const activeLogs = savedLogs ? JSON.parse(savedLogs) : [];
-          setProfile(activeProfile);
-          setLogs(activeLogs);
-          localStorage.setItem("macromind_cached_profile", JSON.stringify(activeProfile));
-          localStorage.setItem("macromind_cached_logs", JSON.stringify(activeLogs));
+        if (data.profile) {
+          setProfile(data.profile);
+          localStorage.setItem("macromind_cached_profile", JSON.stringify(data.profile));
+        }
+        if (data.logs) {
+          setLogs(data.logs);
+          localStorage.setItem("macromind_cached_logs", JSON.stringify(data.logs));
         }
         
         setTrend(data.weeklyCalories ?? []);
@@ -256,9 +253,6 @@ export function Dashboard() {
     setLogs((current) => {
       const next = [optimisticEntry, ...current];
       localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
-      if (!isSignedIn) {
-        localStorage.setItem("macromind_guest_logs", JSON.stringify(next));
-      }
       return next;
     });
 
@@ -284,9 +278,6 @@ export function Dashboard() {
         setLogs((current) => {
           const next = current.map((item) => (item.id === optimisticId ? data.log : item));
           localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
-          if (!isSignedIn) {
-            localStorage.setItem("macromind_guest_logs", JSON.stringify(next));
-          }
           return next;
         });
       } catch {
@@ -300,9 +291,6 @@ export function Dashboard() {
     setLogs((current) => {
       const next = current.filter((log) => log.id !== id);
       localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
-      if (!isSignedIn) {
-        localStorage.setItem("macromind_guest_logs", JSON.stringify(next));
-      }
       return next;
     });
 
@@ -311,7 +299,7 @@ export function Dashboard() {
     });
   }
 
-  const getCellClass = (calories: number, protein: number) => {
+  const getCellClass = (calories: number) => {
     if (calories === 0) return "bg-muted/30 dark:bg-muted/20 hover:bg-muted/50 border border-border/10";
     const target = profile.targetCalories || 2000;
     const ratio = calories / target;
@@ -333,6 +321,8 @@ export function Dashboard() {
     }
   };
 
+  const displayName = profile.name || user?.fullName || user?.firstName || "User";
+
   return (
     <main className="min-h-screen px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
@@ -347,7 +337,7 @@ export function Dashboard() {
             <p className="mt-3 text-sm text-muted-foreground">
               {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date())}
             </p>
-            <h1 className="mt-1 text-2xl font-semibold tracking-normal sm:text-4xl">Good evening, {profile.name}</h1>
+            <h1 className="mt-1 text-2xl font-semibold tracking-normal sm:text-4xl">Good evening, {displayName}</h1>
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -565,7 +555,7 @@ export function Dashboard() {
                         {trend.slice(0, 70).map((day, idx) => (
                           <div
                             key={`${day.date || 'day'}-${idx}`}
-                            className={`w-[12px] h-[12px] rounded-[2px] transition-all cursor-pointer ${getCellClass(day.calories, day.protein)}`}
+                            className={`w-[12px] h-[12px] rounded-[2px] transition-all cursor-pointer ${getCellClass(day.calories)}`}
                             title={getCellTitle(day.date, day.calories, day.protein)}
                           />
                         ))}
@@ -657,9 +647,6 @@ export function Dashboard() {
         onSave={(updated) => {
           setProfile(updated);
           localStorage.setItem("macromind_cached_profile", JSON.stringify(updated));
-          if (!isSignedIn) {
-            localStorage.setItem("macromind_guest_profile", JSON.stringify(updated));
-          }
         }}
       />
     </main>
