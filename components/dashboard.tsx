@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
-import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { Droplets, FileDown, Plus, Repeat, Scale, Trophy, Utensils, Settings, Sparkles } from "lucide-react";
 import { AddFoodPanel } from "@/components/add-food-panel";
 import { ProfileSettingsPanel } from "@/components/profile-settings-panel";
@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { demoLogs, demoProfile, weeklyCalories } from "@/lib/demo-data";
+import { demoProfile } from "@/lib/demo-data";
 import type { AiInsight, MealType, NutritionEntry, UserProfile } from "@/lib/types";
 
 const pieColors = ["#111827", "#6b7280", "#9ca3af"];
