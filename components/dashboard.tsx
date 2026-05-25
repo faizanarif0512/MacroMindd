@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useUser } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
-import { Droplets, FileDown, Plus, Repeat, Scale, Trophy, Utensils, Settings, Sparkles } from "lucide-react";
+import { Droplets, FileDown, Plus, Repeat, Scale, Trophy, Utensils, Settings, Sparkles, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { AddFoodPanel } from "@/components/add-food-panel";
 import { ProfileSettingsPanel } from "@/components/profile-settings-panel";
 import { MacroRing } from "@/components/macro-ring";
@@ -16,6 +16,15 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { AiInsight, MealType, NutritionEntry, UserProfile } from "@/lib/types";
+
+const isToday = (date: Date) => {
+  const today = new Date();
+  return (
+    date.getDate() === today.getDate() &&
+    date.getMonth() === today.getMonth() &&
+    date.getFullYear() === today.getFullYear()
+  );
+};
 
 const emptyProfile: UserProfile = {
   name: "",
@@ -76,6 +85,8 @@ export function Dashboard() {
 
   const [waterCups, setWaterCups] = useState(0);
   const [streak, setStreak] = useState(0);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(() => new Date());
 
   const handleUpdateWater = (amount: number) => {
     setWaterCups((current) => {
@@ -85,6 +96,40 @@ export function Dashboard() {
       return next;
     });
   };
+
+  const handleNavigateDate = (days: number) => {
+    setSelectedDate((current) => {
+      const next = new Date(current);
+      next.setDate(current.getDate() + days);
+      return next;
+    });
+  };
+
+  async function handleDuplicateYesterday() {
+    if (isDuplicating) return;
+    setIsDuplicating(true);
+    try {
+      const response = await fetch("/api/food-logs/duplicate-yesterday", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      if (!response.ok) {
+        throw new Error("Failed to duplicate yesterday's meals");
+      }
+      const data = (await response.json()) as { logs: NutritionEntry[]; message?: string };
+      if (data.logs && data.logs.length > 0) {
+        setLogs(data.logs);
+        localStorage.setItem("macromind_cached_logs", JSON.stringify(data.logs));
+      } else {
+        alert("No meals were logged yesterday to duplicate!");
+      }
+    } catch (error) {
+      console.error(error);
+      alert("Trouble duplicating meals. Make sure you logged meals yesterday.");
+    } finally {
+      setIsDuplicating(false);
+    }
+  }
 
   async function handleSendChat(event: React.FormEvent) {
     event.preventDefault();
@@ -158,7 +203,8 @@ export function Dashboard() {
 
     async function loadDashboard() {
       try {
-        const response = await fetch("/api/dashboard", { cache: "no-store" });
+        const dateStr = selectedDate.toISOString().split("T")[0];
+        const response = await fetch(`/api/dashboard?date=${dateStr}`, { cache: "no-store" });
         if (!response.ok) return;
         const data = (await response.json()) as {
           mode: "database" | "demo";
@@ -172,37 +218,44 @@ export function Dashboard() {
         
         if (data.profile) {
           setProfile(data.profile);
-          localStorage.setItem("macromind_cached_profile", JSON.stringify(data.profile));
+          if (isToday(selectedDate)) {
+            localStorage.setItem("macromind_cached_profile", JSON.stringify(data.profile));
+          }
         }
         if (data.logs) {
           setLogs(data.logs);
-          localStorage.setItem("macromind_cached_logs", JSON.stringify(data.logs));
+          if (isToday(selectedDate)) {
+            localStorage.setItem("macromind_cached_logs", JSON.stringify(data.logs));
+          }
         }
         
         setTrend(data.weeklyCalories ?? []);
         setHealthScore(data.healthScore ?? 82);
         setStreak(data.streak ?? 0);
-        localStorage.setItem("macromind_cached_trend", JSON.stringify(data.weeklyCalories ?? []));
-        localStorage.setItem("macromind_cached_health", JSON.stringify(data.healthScore ?? 82));
-        localStorage.setItem("macromind_cached_streak", String(data.streak ?? 0));
+        if (isToday(selectedDate)) {
+          localStorage.setItem("macromind_cached_trend", JSON.stringify(data.weeklyCalories ?? []));
+          localStorage.setItem("macromind_cached_health", JSON.stringify(data.healthScore ?? 82));
+          localStorage.setItem("macromind_cached_streak", String(data.streak ?? 0));
+        }
       } finally {
         if (active) setIsLoading(false);
       }
     }
 
     if (isLoaded) {
+      setIsLoading(true);
       loadDashboard();
     }
 
     return () => {
       active = false;
     };
-  }, [isLoaded, isSignedIn]);
+  }, [isLoaded, isSignedIn, selectedDate]);
 
   useEffect(() => {
     const controller = new AbortController();
 
-    async function loadInsights() {
+    const timer = setTimeout(async () => {
       try {
         const response = await fetch("/api/ai/insights", {
           method: "POST",
@@ -218,11 +271,12 @@ export function Dashboard() {
       } catch {
         // Keep the last useful insight if OpenAI or the network is unavailable.
       }
-    }
+    }, 1500);
 
-    loadInsights();
-
-    return () => controller.abort();
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, [logs, profile]);
 
   const totals = useMemo(() => totalLogs(logs), [logs]);
@@ -249,10 +303,16 @@ export function Dashboard() {
   async function addLog(entry: NutritionEntry) {
     const optimisticId = entry.id ?? crypto.randomUUID();
     const optimisticEntry = { ...entry, id: optimisticId };
+
+    const logTimestamp = new Date(selectedDate);
+    const now = new Date();
+    logTimestamp.setHours(now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
     
     setLogs((current) => {
       const next = [optimisticEntry, ...current];
-      localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
+      if (isToday(selectedDate)) {
+        localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
+      }
       return next;
     });
 
@@ -270,7 +330,8 @@ export function Dashboard() {
             protein: entry.protein,
             carbs: entry.carbs,
             fats: entry.fats,
-            fiber: entry.fiber
+            fiber: entry.fiber,
+            timestamp: logTimestamp.toISOString()
           })
         });
         if (!response.ok) return;
@@ -290,7 +351,9 @@ export function Dashboard() {
     if (!id) return;
     setLogs((current) => {
       const next = current.filter((log) => log.id !== id);
-      localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
+      if (isToday(selectedDate)) {
+        localStorage.setItem("macromind_cached_logs", JSON.stringify(next));
+      }
       return next;
     });
 
@@ -334,9 +397,41 @@ export function Dashboard() {
               </div>
               <span className="text-lg font-semibold">MacroMind</span>
             </div>
-            <p className="mt-3 text-sm text-muted-foreground">
-              {new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date())}
-            </p>
+            <div className="mt-3 flex items-center gap-1 text-sm select-none">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 rounded-lg hover:bg-muted"
+                onClick={() => handleNavigateDate(-1)}
+                aria-label="Previous day"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              <div className="relative flex items-center gap-1.5 bg-muted/65 hover:bg-muted/95 border px-2.5 py-1 rounded-xl transition-all cursor-pointer">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                <input 
+                  type="date" 
+                  value={selectedDate.toISOString().split("T")[0]}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => {
+                    if (e.target.value) setSelectedDate(new Date(e.target.value));
+                  }}
+                  className="bg-transparent border-none outline-none text-xs font-semibold text-foreground cursor-pointer w-[95px] pr-1"
+                />
+              </div>
+
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-7 w-7 rounded-lg hover:bg-muted"
+                onClick={() => handleNavigateDate(1)}
+                disabled={isToday(selectedDate)}
+                aria-label="Next day"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
             <h1 className="mt-1 text-2xl font-semibold tracking-normal sm:text-4xl">Good evening, {displayName}</h1>
           </div>
           <div className="flex items-center gap-2">
@@ -623,9 +718,23 @@ export function Dashboard() {
                 </div>
               </Card>
             </div>
-            <Button variant="secondary" className="w-full">
-              <Repeat className="h-4 w-4" />
-              Duplicate yesterday&apos;s meals
+            <Button
+              variant="secondary"
+              className="w-full font-medium"
+              onClick={handleDuplicateYesterday}
+              disabled={isDuplicating}
+            >
+              {isDuplicating ? (
+                <div className="flex items-center gap-2 justify-center">
+                  <Repeat className="h-4 w-4 animate-spin text-primary" />
+                  <span>Duplicating meals...</span>
+                </div>
+              ) : (
+                <>
+                  <Repeat className="h-4 w-4" />
+                  <span>Duplicate yesterday&apos;s meals</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
